@@ -24,6 +24,9 @@ if [ "$build" = 1 ]; then
   python3 -I scripts/statify.py
 fi
 
+# sitemap.xml and robots.txt (also written by seo.py when run alone; idempotent, so --no-build gets them too)
+python3 -I scripts/seo.py
+
 # The edge script must match build-meta/url-map.json (regenerate, commit, then tofu apply).
 python3 -I scripts/gen_edge_script.py --check
 node scripts/test_edge_script.mjs

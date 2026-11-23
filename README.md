@@ -12,6 +12,10 @@ Published as a **100 % static, read-only archive** on bunny.net at the hostname 
 published: a Python renderer pre-renders the `$$MACRO$$` templates of the skins over a SQLite
 extraction of the database.
 
+## Search engines
+
+`scripts/seo.py` writes `robots.txt` (allow everything, with the `Sitemap:` line) and `sitemap.xml` (indexable pages only and the alternative skins) into `site/`; `scripts/publish.sh` runs it before the deploy (alone: `python3 -I scripts/seo.py`; the files land in the git-ignored `site/`).
+
 ## Layout
 
 | Path | Content |
