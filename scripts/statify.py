@@ -58,6 +58,35 @@ ARCHIVED = "/archived.htm"
 SEARCH_PAGE = "/oj-search.htm"     # client-side search results (z/o/search.htm is the FTP search page)
 META_CHARSET = '<META http-equiv="Content-Type" content="text/html; charset=iso-8859-1">'
 
+# ---- removal-request footer: added to every page that lists or describes people
+REMOVAL_MARK = 'id="removal-note"'
+REMOVAL_NOTE = (
+    '<div id="removal-note" style="clear:both;margin:28px auto 8px;padding:6px 8px 0;width:60%;'
+    'border-top:1px solid #808080;text-align:center;font:10px/14px Verdana,Arial,Helvetica,sans-serif;'
+    'color:#808080;background:transparent">To be removed from this page, '
+    '<a href="mailto:chandra_oj@pm.me" style="color:#808080;text-decoration:underline">contact me</a>.</div>'
+)
+_BODY_END = re.compile(r"(?is)</body\s*>(?!.*</body\s*>)")
+
+
+def add_removal_note(text):
+    if REMOVAL_MARK in text:
+        return text
+    m = _BODY_END.search(text)
+    if m:
+        return text[: m.start()] + REMOVAL_NOTE + "\n" + text[m.start():]
+    return text + "\n" + REMOVAL_NOTE + "\n"
+
+# Pages that list or describe people: nick sheets and lists, party attendee, result and info-file pages,
+# birthdays, interviews, oneliner.
+PEOPLE_PAGES = re.compile(r"(?:^|/)(?:nick|nicklist(?:-[a-z0-9]+)*|party_coming|party_results|party_infofile"
+                          r"|birthdates|interviews|boo)(?:-p\d+)?\.htm$")
+
+
+def is_people_page(path):
+    return bool(PEOPLE_PAGES.search(path))
+
+
 # Templates of write paths, logins, admin, counters and dead services: never rendered; links to
 # them go to /archived.htm.
 REMOVED = {
@@ -634,6 +663,8 @@ def build_skin(skin, skins, out, raw, jsv):
     for p, text in sorted(site.pages.items()):
         dst = out / (prefix + p).lstrip("/")
         dst.parent.mkdir(parents=True, exist_ok=True)
+        if is_people_page(p):
+            text = add_removal_note(text)
         dst.write_bytes(encode_page(text.replace('/js/oj.js"', f'/js/oj.js?v={jsv}"')))
     idx = out / (prefix + "/index.htm").lstrip("/")
     if idx.exists():

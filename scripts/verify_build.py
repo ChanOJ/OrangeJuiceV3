@@ -43,6 +43,8 @@ LEFTOVERS = [
     ("form tag", re.compile(r"(?i)<form\b")),
     ("mailto:", re.compile(r"(?i)mailto:")),
 ]
+# The removal-request footer (statify.py) carries the only mailto: of the site: leave it out of the scans.
+REMOVAL_NOTE_RE = re.compile(r'(?s)<div id="removal-note".*?</div>')
 EMAIL_RE = re.compile(r"[A-Za-z0-9._+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+")
 OWN_HOST_RE = re.compile(r"(?i)https?://(?:www\.)?ojuice\.(?:net|org)(?![\w.-])")
 IPV4 = re.compile(r"(?<![\d.])(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)(?![\d.])")
@@ -158,7 +160,7 @@ def main(argv=None):
             continue
         nbpages += 1
         try:
-            text = p.read_bytes().decode(ENC)
+            text = REMOVAL_NOTE_RE.sub("", p.read_bytes().decode(ENC))
         except UnicodeDecodeError:
             err("charset", f)
             continue
