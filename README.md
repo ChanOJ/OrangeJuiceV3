@@ -103,6 +103,10 @@ string (`/index.htm?idcat=3&OJ_NEWS_QRYpg=2`, `/nicklist.htm?idgroup=12`, search
   only runs on cache misses. `scripts/test_edge_script.mjs` checks every old query URL of
   `build-meta/url-map.json` (2875), edge cases, and that each target exists in `site/`.
 
+## Removal requests
+
+Pages that list or describe people end with a small footer, "To be removed from this page, contact me." (a `mailto:` link). `scripts/statify.py` adds it (`is_people_page`), so it survives rebuilds; `scripts/verify_build.py` leaves it out of its `mailto:` and e-mail checks.
+
 ## Deploying
 
 `site/` is generated on the Mac (it needs the raw store `~/Code/id3x/raw`) and is not in the repository, so the
