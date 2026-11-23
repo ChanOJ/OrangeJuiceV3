@@ -137,7 +137,8 @@ def check(base: str, extra: list[tuple[str, str]]) -> list[str]:
                 return f"{old}: HTTP {status}, expected 404 with the custom page"
             return None
         loc = urllib.parse.urlsplit(h.get("location", ""))
-        if status != 301 or loc.path != want:
+        got = loc.path + ("?" + loc.query if loc.query else "")
+        if status != 301 or got != want:
             return f"{old}: HTTP {status} Location {h.get('location')!r}, expected 301 {want}"
         return None
 
