@@ -227,3 +227,10 @@ If the apply rejects an edge rule, the 404 path or the Edge Script, set it by ha
 5. Edge Scripting > *Add Script* > *Middleware*, name `orangejuicev3-legacy-redirects`, paste
    `infra/edge/redirects.js`, *Publish*; link it to the pull zone `orangejuicev3`. Then CDN >
    pull zone > *Caching* > *Vary cache*: *Query string* on.
+
+## To Do
+
+Cross-links to fix in a batch pass (the targets are archived on `sauthier.family`; rewrite the `href`s):
+
+- `www.scenemusic.net` (101,367 links in 2,783 files): Nectarine (https://nectarine.sauthier.family); needs the old-URL to static-file map of Nectarine (`build-meta/url-map.json`) for deep links.
+- `nectarine.ojuice.net` (57 links in 27 files): Nectarine (https://nectarine.sauthier.family).
