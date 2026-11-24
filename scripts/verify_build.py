@@ -10,7 +10,7 @@ Hard checks (exit 1 on failure):
   * every html page declares iso-8859-1 and decodes as such
   * every internal link (href/src/background) resolves to a file of the build, keeps no query
     string except the archive's own search page, and stays within its skin prefix
-  * no link to http(s)://(www.)ojuice.net, no `mailto:`, no e-mail address (`local@????` passes)
+  * no link to http(s)://(www.)ojuice.net, no `mailto:`, no e-mail address (`local@????` and `f*****l@domain` pass)
   * people: no published birth year next to a day/month, no e-mail domain, no department, no
     password; ID photos (/zi/nicks/) only for ids that have a people sheet in the build
     (private values are read at run time from the SQLite database, never stored)
@@ -45,7 +45,8 @@ LEFTOVERS = [
 ]
 # The removal-request footer (statify.py) carries the only mailto: of the site: leave it out of the scans.
 REMOVAL_NOTE_RE = re.compile(r'(?s)<div id="removal-note".*?</div>')
-EMAIL_RE = re.compile(r"[A-Za-z0-9._+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+")
+# an address starred by the build (`f*****l@domain`, people pages) passes: the lookbehind skips its last letter
+EMAIL_RE = re.compile(r"(?<![*])[A-Za-z0-9._+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+")
 OWN_HOST_RE = re.compile(r"(?i)https?://(?:www\.)?ojuice\.(?:net|org)(?![\w.-])")
 IPV4 = re.compile(r"(?<![\d.])(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)(?![\d.])")
 KEY_PAGES = ("index.htm", "index.html", "archived.htm", "skins.htm", "oj-search.htm", "145/nick.htm",

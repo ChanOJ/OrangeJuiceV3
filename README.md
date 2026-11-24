@@ -14,7 +14,7 @@ extraction of the database.
 
 ## Search engines
 
-`scripts/seo.py` writes `robots.txt` (allow everything, with the `Sitemap:` line) and `sitemap.xml` (indexable pages only and the alternative skins) into `site/`; `scripts/publish.sh` runs it after the build (alone: `python3 -I scripts/seo.py`; the files land in `site/`).
+`scripts/seo.py` writes `robots.txt` (allow everything, with the `Sitemap:` line) and `sitemap.xml` (indexable pages of the default skin only) into `site/`; `scripts/publish.sh` runs it after the build (alone: `python3 -I scripts/seo.py`; the files land in `site/`).
 
 ## Layout
 
@@ -228,9 +228,19 @@ If the apply rejects an edge rule, the 404 path or the Edge Script, set it by ha
    `infra/edge/redirects.js`, *Publish*; link it to the pull zone `orangejuicev3`. Then CDN >
    pull zone > *Caching* > *Vary cache*: *Query string* on.
 
-## To Do
+## Cross-links
 
-Cross-links to fix in a batch pass (the targets are archived on `sauthier.family`; rewrite the `href`s):
+`www.scenemusic.net` (the Nectarine banner of every page header and sidebar) and `nectarine.ojuice.net` now point to the
+archive of Nectarine, https://nectarine.sauthier.family/ (home page: deep links such as `relays.htm` or `info.htm?songid=`
+have no counterpart in its `url-map.json`). `NECTARINE_HOSTS` in `scripts/statify.py`.
 
-- `www.scenemusic.net` (101,367 links in 2,783 files): Nectarine (https://nectarine.sauthier.family); needs the old-URL to static-file map of Nectarine (`build-meta/url-map.json`) for deep links.
-- `nectarine.ojuice.net` (57 links in 27 files): Nectarine (https://nectarine.sauthier.family).
+## External links, e-mails, ICQ
+
+- External `http`/`https`/`ftp` links keep their original `href` (dead hosts included, a click may fail); only counters
+  (`DEAD_HOSTS`) and forms are removed. Sources with a trailing `]` or a host without scheme are repaired.
+- ICQ numbers, their pager links and the "ICQ state :" text are kept; the dead presence badge is the local red flower
+  `scripts/assets/icqoff.gif` ("offline").
+- People pages (`PEOPLE_PAGES`) show every e-mail address as first letter + stars + last letter with its domain
+  (`l*****t@domain.com`), without a `mailto:` link; elsewhere addresses are `local@????`.
+- The removal footer (`needs_removal_note`) is added only on pages with a family name (`Name :` of a sheet with two words
+  or more, interviews, wallpapers whose zips hold addresses) or an e-mail left as `local@????`.

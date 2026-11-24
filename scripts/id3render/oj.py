@@ -6,8 +6,7 @@ Only read paths are implemented: admin, session, banner, FTP search and POST mac
 nothing, like the site did for a visitor who is not logged in.
 
 Privacy: every row goes through `redact()`, which removes passwords, logins, IPs, host names,
-user agents, departments and birth years, and keeps only the local part of e-mail addresses
-(`local@????`). The templates therefore never see the private values.
+user agents, departments and birth years, and shows e-mail addresses as `f*****l@domain`. The templates therefore never see the private values.
 """
 import re
 import sqlite3
@@ -24,6 +23,18 @@ DROP = {"PASSWORD", "DEPARTMENT", "DEPARTMENT_NUM", "IP", "USER_AGENT", "MAILING
         "TOTAL_LOGIN_TIME", "OJUID", "SEX_SIZE", "LOGIN", "COOKIE"}
 
 
+def star_local(local):
+    """`local` -> first and last letter with asterisks between (`l*****t`)."""
+    return local[0] + "*" * (len(local) - 2) + local[-1] if len(local) > 2 else "*" * len(local)
+
+
+def star_email(v):
+    """People sheets (owner decision 2026-11-24): first and last letter of the local part, complete domain
+    (`l*****t@domain.com`); an address already masked by its owner (`@????`) stays masked."""
+    local, _, domain = v.strip().partition("@")
+    return f"{star_local(local)}@{domain.strip() or MASK}" if local and domain else ""
+
+
 def redact(row):
     out = {}
     for k, v in row.items():
@@ -35,8 +46,7 @@ def redact(row):
         elif K == "HOSTNAME":
             v = MASK if v else v
         elif K == "EMAIL" and v:
-            local = str(v).split("@")[0].strip()
-            v = f"{local}@{MASK}" if local else None
+            v = star_email(str(v)) or None
         out[K] = v
     return out
 

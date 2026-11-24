@@ -61,10 +61,10 @@ META_CHARSET = '<META http-equiv="Content-Type" content="text/html; charset=iso-
 # ---- removal-request footer: added to every page that lists or describes people
 REMOVAL_MARK = 'id="removal-note"'
 REMOVAL_NOTE = (
-    '<div id="removal-note" style="clear:both;margin:28px auto 8px;padding:6px 8px 0;width:60%;'
-    'border-top:1px solid #808080;text-align:center;font:10px/14px Verdana,Arial,Helvetica,sans-serif;'
+    '<div id="removal-note" style="clear:both;margin:28px auto 8px;padding:6px 8px 0;width:775px;max-width:96%;'
+    'box-sizing:border-box;border-top:1px solid #808080;text-align:center;font:10px/14px Verdana,Arial,Helvetica,sans-serif;'
     'color:#808080;background:transparent">To be removed from this page, '
-    '<a href="mailto:chandra_oj@pm.me" style="color:#808080;text-decoration:underline">contact me</a>.</div>'
+    '<a href="mailto:chandra_oj&#64;pm.me" style="color:#808080;text-decoration:underline">contact me</a>.</div>'
 )
 _BODY_END = re.compile(r"(?is)</body\s*>(?!.*</body\s*>)")
 
@@ -77,14 +77,30 @@ def add_removal_note(text):
         return text[: m.start()] + REMOVAL_NOTE + "\n" + text[m.start():]
     return text + "\n" + REMOVAL_NOTE + "\n"
 
-# Pages that list or describe people: nick sheets and lists, party attendee, result and info-file pages,
-# birthdays, interviews, oneliner.
+# Pages that list or describe people: their e-mail addresses are shown as `f****l@domain` (owner decision
+# 2026-11-24: too many local parts to sort by hand).
 PEOPLE_PAGES = re.compile(r"(?:^|/)(?:nick|nicklist(?:-[a-z0-9]+)*|party_coming|party_results|party_infofile"
                           r"|birthdates|interviews|boo)(?:-p\d+)?\.htm$")
 
 
 def is_people_page(path):
     return bool(PEOPLE_PAGES.search(path))
+
+
+# The removal footer goes only on pages that show a family name, a postal address or an e-mail whose local
+# part is in clear (`local@????`); never on pages with nicks only or starred addresses.
+TRUNCATED_EMAIL = re.compile(r"(?<![A-Za-z0-9._+*-])[A-Za-z0-9._+-]+@\?\?\?\?")
+SHEET_NAME = re.compile(r"(?is)\bName\s*:\s*(?:<FONT[^>]*>)?([^<]*)<")
+FAMILY_NAME_PAGES = re.compile(r"(?:^|/)(?:interviews(?:-p\d+)?|wallpapers)\.htm$")
+
+
+def needs_removal_note(path, text):
+    if TRUNCATED_EMAIL.search(text):
+        return True
+    if path.endswith("/nick.htm"):
+        m = SHEET_NAME.search(text)
+        return bool(m and len(html.unescape(m.group(1)).split()) >= 2)
+    return bool(FAMILY_NAME_PAGES.search(path))
 
 
 # Templates of write paths, logins, admin, counters and dead services: never rendered; links to
@@ -108,7 +124,11 @@ QUERY_KEYS = {"idcat": "cat", "idgroup": "group"}
 # Parameters of the original searches: the link goes to the client-side search page
 SEARCH_KEYS = {"sn": "news", "snick": "people", "sl": "groups", "sp": "parties", "kw": "pictures",
                "event": "pictures", "author": "pictures", "who": "pictures", "sftp": None, "q": None}
-DEAD_HOSTS = ("mirabilis.com", "icq.com", "cnxweb.com", "extreme-dm.com", "audiorealm.com", "hitbox.com")
+# Counters and stats only: ICQ links (mirabilis.com, icq.com) are kept, their presence badge is a local image.
+DEAD_HOSTS = ("cnxweb.com", "extreme-dm.com", "audiorealm.com", "hitbox.com")
+# Nectarine radio, now archived (README To Do): every link to its old hosts goes to the archive's home.
+NECTARINE_HOSTS = ("scenemusic.net", "www.scenemusic.net", "nectarine.ojuice.net")
+NECTARINE_URL = "https://nectarine.sauthier.family/"
 
 
 # --- archive pages (rendered in the skin's frame like any template) ---------------------------------
@@ -219,13 +239,17 @@ class Site:
 
     def _resolve(self, url, base):
         url = html.unescape(url.strip())
-        if not url or url.startswith("#"):
+        if not url or url.startswith("#") or url == ICQ_IMAGE:
             return url, "ok"
         low = url.lower()
         if low.startswith(("javascript:", "mailto:", "news:", "ftp:", "irc:", "telnet:")):
             return url, "external"
         if low.startswith("//"):
             url = "http:" + url
+        if re.match(r"(?i)^(?:https?|ftp)://[^\s\[]*\]$", url):
+            url = url[:-1]                  # `http://www.indus3.org]`: a bracket of the source text
+        elif re.match(r"(?i)^(?:www|ftp)\.[\w-]+\.[\w.-]+(?:[/:?#]|$)", url):
+            url = ("ftp://" if low.startswith("ftp.") else "http://") + url      # host without scheme
         try:
             sp = urlsplit(urljoin("http://%s%s" % (HOST, base), url))
             sp.hostname
@@ -233,6 +257,8 @@ class Site:
             return None, "malformed URL"
         host = (sp.hostname or "").lower()
         if host not in OWN_HOSTS:
+            if host in NECTARINE_HOSTS:
+                return NECTARINE_URL, "external"
             if host == "light.ojuice.net" and "light" in self.skins:
                 return "/skin/light/", "ok"
             if any(host == h or host.endswith("." + h) for h in DEAD_HOSTS):
@@ -277,6 +303,8 @@ class Site:
         """Published path of a skin or media file referenced by a page, in its on-disk spelling."""
         if path.lower().endswith((".rar", ".exe", ".pls")):
             return None             # archives that cannot be checked for executables, playlists
+        if re.search(r"(?i)/(?:banner\d*\.js|tshirt-form\.txt)$", path):
+            return None             # engine template sources ($$DYN / $$OJ macros), never published
         if path.startswith(("/z/", "/zi/")):
             cands = [path]
             m = re.match(r"^/z/[^/]+/(.*)$", path)
@@ -393,10 +421,13 @@ class Site:
     def finalize(self, text, base, out):
         text = icq_badges(remove_dead_scripts(text), self.skin, base.endswith("/nick.htm"))
         text = neutralize_forms(text, self, out)
-        text = redact_emails(text)
+        if base.endswith("/viewpic.htm"):
+            text = self.fix_goback(text, base)
+        stars = is_people_page(base)
+        text = redact_emails(text, stars)
         text = self.rewrite_links(text, base, out)
         text = self.sweep_own_host(text, base)
-        text = redact_emails(text)
+        text = redact_emails(text, stars)
         text = re.sub(r"/\*setTimeout\(.*?\*/", "", text)     # the disabled auto-refresh of every page
         text = mask_ips(text)
         text = re.sub(r"(?i)(charset\s*=\s*)(?:windows-1252|cp1252|us-ascii|(?=[\"'>\s]))", r"\1iso-8859-1", text)
@@ -408,6 +439,14 @@ class Site:
             m = re.search(r"(?i)<head[^>]*>", text) or re.search(r"(?i)<html[^>]*>", text)
             text = text[:m.end()] + "\r\n" + META_CHARSET + text[m.end():] if m else META_CHARSET + "\r\n" + text
         return text
+
+    def fix_goback(self, text, base):
+        """"> go back" of a picture: history.back(), else its library (the original fell back to /piclib.htm,
+        a page that never existed: the libraries are /pics/ and /photos/)."""
+        m = re.match(r"/(\d+)/viewpic\.htm$", base)
+        photo = m and self.macros.db.scalar("SELECT isphoto FROM pictures WHERE id = ?", (int(m.group(1)),))
+        lib = "/photos/piclib.htm" if photo else "/pics/piclib.htm"
+        return text.replace("location.href='/piclib.htm'", "location.href='%s%s'" % (self.prefix, lib))
 
     OWN_URL_RE = re.compile(r"(?i)https?://(?:www\.)?ojuice\.(?:net|org)(?:/[^\s\"'<>)]*)?")
 
@@ -481,18 +520,21 @@ def outside_scripts(text, fn):
     return "".join(p if i % 2 else fn(p) for i, p in enumerate(parts))
 
 
+ICQ_IMAGE = "/z/icqoff.gif"      # scripts/assets/icqoff.gif, copied to site/z/
 ICQ_RE = re.compile(r"(?is)<A href=\"?http://wwp\.mirabilis\.com/scripts/Search\.dll\?to=(\d+)\"?>(.*?)</A>")
 
 
 def icq_badges(text, skin, sheet):
-    """The live ICQ status flower (online.mirabilis.com, gone) becomes the skin's own neutral
-    flower p/icq3.gif (its commented-out fallback), the number as tooltip; on a people sheet the
+    """The live ICQ status flower (online.mirabilis.com, gone) becomes the local red flower ("offline",
+    scripts/assets/icqoff.gif) inside the original pager link (UIN in its href, kept); on a people sheet the
     number is also written out."""
     def fn(m):
         img = re.search(r"(?i)<IMG[^>]*\bwidth=(\d+)[^>]*\bheight=(\d+)", m.group(2))
         w, h = img.groups() if img else ("13", "13")
-        badge = (f'<IMG src="/z/{skin}/p/icq3.gif" width={w} height={h} align=top border=0 '
-                 f'alt="ICQ #{m.group(1)}" title="ICQ #{m.group(1)}">')
+        alt = re.search(r'(?is)\balt="([^"]*)"', m.group(2))
+        badge = (f'<A href="http://wwp.mirabilis.com/scripts/Search.dll?to={m.group(1)}"><IMG src="{ICQ_IMAGE}" '
+                 f'width={w} height={h} align=top border=0 alt="{alt.group(1) if alt else "ICQ #" + m.group(1)}" '
+                 f'title="ICQ #{m.group(1)}"></A>')
         return f"{badge} <FONT class=aslink>{m.group(1)}</FONT>" if sheet else badge
     return ICQ_RE.sub(fn, text)
 
@@ -555,12 +597,17 @@ def search_widget(kind, size=18):
 
 
 MAILTO_A_RE = re.compile(r"<a\b[^>]*href\s*=\s*[\"']?\s*mailto:[^>]*>(.*?)</a\s*>", re.I | re.S)
-EMAIL_RE = re.compile(r"([A-Za-z0-9._+-]+)@([A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+)")
+EMAIL_RE = re.compile(r"(?<![*\w.+-])([A-Za-z0-9._+-]+)@([A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+)")
 
 
-def redact_emails(text):
+def redact_emails(text, stars=False):
+    """No mailto link survives. People pages (`stars`, owner decision 2026-11-24): every address keeps its
+    domain and shows the first and last letter of its local part (`l*****t@domain.com`). Other pages:
+    `local@????` (an address already starred is left alone)."""
     text = MAILTO_A_RE.sub(lambda m: m.group(1), text)
     text = re.sub(r"(?i)mailto:", "", text)
+    if stars:
+        return EMAIL_RE.sub(lambda m: oj.star_local(m.group(1)) + "@" + m.group(2), text)
     return EMAIL_RE.sub(lambda m: m.group(1) + "@" + MASK, text)
 
 
@@ -663,7 +710,7 @@ def build_skin(skin, skins, out, raw, jsv):
     for p, text in sorted(site.pages.items()):
         dst = out / (prefix + p).lstrip("/")
         dst.parent.mkdir(parents=True, exist_ok=True)
-        if is_people_page(p):
+        if needs_removal_note(p, text):
             text = add_removal_note(text)
         dst.write_bytes(encode_page(text.replace('/js/oj.js"', f'/js/oj.js?v={jsv}"')))
     idx = out / (prefix + "/index.htm").lstrip("/")
@@ -706,6 +753,7 @@ def main(argv=None):
         dst = out / p.lstrip("/")
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(raw / "id3" / p.lstrip("/"), dst)
+    shutil.copyfile(REPO / "scripts" / "assets" / "icqoff.gif", out / "z" / "icqoff.gif")
     hosting = REPO / "hosting"
     hosting.mkdir(exist_ok=True)
     shutil.copyfile(out / "404.htm", hosting / "404.html")
