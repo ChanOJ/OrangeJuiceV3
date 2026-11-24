@@ -14,7 +14,11 @@ and pull zone `orangejuicev3`, Proton Pass item `OrangeJuiceV3-tofu-state-passph
   the repository, a commit, a PR or a page, except rendered public data.
 - Never publish engine code (`Id3.*`, `Poliris.*` DLLs, `.cs`, `.aspx`, `.asp`), nor sensitive
   columns (password, logins, IPs, host names, departments, birth years, e-mail domains).
-- `site/` is generated and git-ignored; `private/` (notes, Wayback captures) is git-ignored.
+- `site/` is generated on the Mac and **committed**; `private/` (notes, Wayback captures) is git-ignored.
+- Process: rebuild locally (`scripts/publish.sh`: build + checks, no deploy), commit `site/` in the
+  same PR as the script change, merge = CI deploys (`.github/workflows/deploy.yml`). Never deploy by
+  hand, never `git add -A`; a leak in git history is permanent, so `verify_build.py` and
+  `check_excludes.py` must pass before any commit of `site/`.
 
 ## Layout
 

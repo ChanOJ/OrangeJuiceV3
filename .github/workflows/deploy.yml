@@ -1,0 +1,70 @@
+name: "Website: deploy"
+
+# - Push to main touching site/ or hosting/: checks (excluded files, verify_build, ClamAV), sync
+#   site/ to the storage zone (only new or changed files), purge the CDN, then check the public site.
+#   site/ is generated on the Mac (it needs private data), committed in the same pull request as
+#   the scripts, and deployed here when the pull request is merged. Changes of site.json or the
+#   Edge Script are deployed by the infra apply instead.
+# - Manual run: same, optionally as a dry run.
+#
+# Repository secret: BUNNY_API_KEY (bunny.net account API key). The storage
+# zone and pull zone come from site.json.
+
+on:
+  push:
+    branches: [main]
+    paths: ["site/**", "hosting/**", "scripts/exclude-globs.txt"]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (show the plan without changing anything)"
+        type: boolean
+        default: true
+      allow_mass_delete:
+        description: "Allow deleting more than 25 % of the remote files"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      BUNNY_API_KEY: ${{ secrets.BUNNY_API_KEY }}
+      DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+      MASS_DELETE: ${{ github.event_name == 'workflow_dispatch' && inputs.allow_mass_delete }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: No excluded file in site/
+        run: python3 -I scripts/check_excludes.py
+
+      - name: Verify the site (no secrets, ASP or forms left)
+        run: python3 -I scripts/verify_build.py --build site
+
+      - name: Malware scan (ClamAV)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq clamav
+          sudo systemctl stop clamav-freshclam || true
+          sudo freshclam --quiet
+          clamscan -r --infected --no-summary site/ hosting/ || { echo "::error::ClamAV flagged files"; exit 1; }
+
+      - name: Sync to the storage zone and purge the cache
+        id: sync
+        run: |
+          args=""
+          if [ "$DRY_RUN" = "true" ]; then args="--dry-run"; fi
+          if [ "$MASS_DELETE" = "true" ]; then args="$args --allow-mass-delete"; fi
+          python3 -I scripts/deploy.py $args
+
+      - name: Smoke test
+        if: env.DRY_RUN != 'true' && steps.sync.outputs.skipped != 'true'
+        run: python3 -I scripts/smoke_test.py --sample 300
