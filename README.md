@@ -14,13 +14,13 @@ extraction of the database.
 
 ## Search engines
 
-`scripts/seo.py` writes `robots.txt` (allow everything, with the `Sitemap:` line) and `sitemap.xml` (indexable pages only and the alternative skins) into `site/`; `scripts/publish.sh` runs it before the deploy (alone: `python3 -I scripts/seo.py`; the files land in the git-ignored `site/`).
+`scripts/seo.py` writes `robots.txt` (allow everything, with the `Sitemap:` line) and `sitemap.xml` (indexable pages only and the alternative skins) into `site/`; `scripts/publish.sh` runs it after the build (alone: `python3 -I scripts/seo.py`; the files land in `site/`).
 
 ## Layout
 
 | Path | Content |
 | --- | --- |
-| `site/` | The generated static site (never edit by hand; **git-ignored**): skin `o` at the root, `light` under `/skin/light/`, `/js/oj.js`, search indexes in `/idx/` |
+| `site/` | The generated static site (never edit by hand; committed, deployed by CI on merge): skin `o` at the root, `light` under `/skin/light/`, `/js/oj.js`, search indexes in `/idx/` |
 | `hosting/404.html` | Custom 404 page (generated with `site/`) |
 | `build-meta/` | `url-map.json` (old query URL -> static file, source of the Edge Script), `unlinked.tsv` |
 | `site.json` | Hosting settings: owner, repository, storage zone, pull zone, hostname, 404 page |
@@ -113,31 +113,36 @@ Pages that list or describe people end with a small footer, "To be removed from 
 
 ## Deploying
 
-`site/` is generated on the Mac (it needs the raw store `~/Code/id3x/raw`) and is not in the repository, so the
-**website is deployed from the Mac**, never by GitHub Actions. One command builds, checks,
-deploys and tests (Proton Pass CLI logged in):
+`site/` is generated on the Mac (it needs the raw store `~/Code/id3x/raw`) but **committed**, like in
+the other old-site repositories. **Merging a pull request to `main` deploys it**: the GitHub Actions
+workflow *Website: deploy* (`.github/workflows/deploy.yml`, when `site/**` or `hosting/**` changed)
+runs the checks and a ClamAV scan, uploads only new or changed files (SHA-256 against the remote
+listing), deletes removed ones (guarded against mass deletion), purges the CDN, then runs
+`smoke_test.py --sample 300`. The run takes a while (1.4 GB checkout and scan): check it is green
+after the merge. Secret `BUNNY_API_KEY`.
+
+Workflow of a change (script, text, data):
+
+1. Branch from an up-to-date `main`, change the scripts.
+2. Rebuild and check locally, then commit `site/` **in the same pull request**:
 
 ```bash
 scripts/publish.sh
 ```
 
-It runs `statify.py`, checks that the Edge Script is up to date and passes its test, then
-`scripts/deploy.py`, which **refuses to deploy unless `verify_build.py` and `check_excludes.py`
-pass** on this exact build (it runs them, about 90 s, and keeps a stamp in `tmp/` so a re-run of
-the same build skips them), uploads only new or changed files (SHA-256 against the remote
-listing, 24 in parallel), deletes removed ones (guarded against mass deletion), purges the CDN;
-then `smoke_test.py --sample 300`. Interrupted or failed uploads: run it again, only what is
-missing is sent. Dry run, or deploy the existing `site/` without rebuilding:
+It runs `statify.py`, `seo.py`, checks that the Edge Script is up to date and passes its test, then
+`verify_build.py` and `check_excludes.py` (a leak committed to git history is permanent: never commit
+`site/` without these two passing). `--no-build` skips `statify.py`.
 
-```bash
-scripts/publish.sh --dry-run
-```
+3. `git add site hosting build-meta` (never `git add -A`: check `git status`), commit, push, open the
+   pull request, merge: CI deploys.
 
-```bash
-scripts/publish.sh --no-build
-```
+Never deploy by hand (a merge that does not match the live site is how changes got lost). Emergency
+only: `scripts/publish.sh --deploy` (needs Proton Pass CLI) runs `deploy.py` and the smoke test from
+the Mac. Push `site/` in several commits if one push would exceed 2 GB (GitHub limit; files must stay
+under 100 MB).
 
-The steps one by one:
+The deploy steps by hand (same as CI):
 
 ```bash
 pass-cli run --env-file infra/secrets.env -- python3 -I scripts/deploy.py --dry-run
@@ -166,7 +171,7 @@ python3 -I scripts/deploy.py --self-test
   manual run of *Infra: bunny.net* (action `apply`, from `main`), which commits the encrypted
   state and runs the smoke test (untick it for the first apply, before the first deploy).
 - **Monitoring**: *Monitoring: weekly smoke test* checks the public site every Monday (status,
-  headers, redirects; pages are compared with `site/` only locally).
+  headers, redirects; pages are compared with `site/` in the deploy workflow and locally).
 
 GitHub secrets: `BUNNY_API_KEY` (bunny.net account API key) and `TF_VAR_STATE_PASSPHRASE`
 (state encryption), both from Proton Pass vault `OldSites`. Local plan:

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Synchronise site/ (+ hosting/404.html) to the bunny.net storage zone of site.json, then purge the CDN.
 
-Run from the Mac (site/ is generated there from the raw store ~/Code/id3x/raw and is not committed):
+Runs in CI (.github/workflows/deploy.yml) when site/ is merged to main; by hand only in an emergency:
 
   pass-cli run --env-file infra/secrets.env -- python3 -I scripts/deploy.py [--dry-run]
 

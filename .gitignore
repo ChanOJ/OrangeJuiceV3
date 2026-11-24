@@ -18,10 +18,8 @@ id_ed25519*
 # Private notes: research notes, macro inventory, Wayback captures. Never published.
 private/
 
-# Generated static site: about 1.4 GB (2 skins, 63 000 pages), built on the Mac from the raw
-# store ~/Code/id3x/raw and deployed from there (scripts/publish.sh). hosting/ and build-meta/
-# stay versioned (small).
-site/
+# site/ (the generated static site, about 1.4 GB, 2 skins) is committed: built on the Mac from the
+# raw store ~/Code/id3x/raw (scripts/publish.sh), deployed by CI when merged to main.
 
 # OpenTofu
 .terraform/

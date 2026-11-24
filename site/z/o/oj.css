@@ -1,0 +1,71 @@
+. {font-family: Verdana,Arial; font-size: 8pt;}
+.reduced {font-size: 7pt;}
+.pre {font-family : Courier New, Courier, mono;}
+.tabtxt {color: #804000; font-size: 8pt;}
+.tabtxt2 {color: #000000; font-size: 8pt;}
+.tabtxtsm {color: #000000; font-size: 7pt;}
+.nbclick {color: #FF8312; font-size: 7pt;}
+.normal {font-family: Verdana,Arial; color: #BBBBBB; font-size: 8pt;}
+.aslink {color: #FFFFFF; font-weight: bold; font-size: 8pt; text-decoration:none;}
+.errmsg {font-weight: bold;  color: #4080FF}
+.title2 {font-weight: bold; font-size: 8pt; color: #FFA534}
+.small {font-family: Verdana; font-weight: bold; font-size : 6pt; color: #000000;}
+.mutxt {font-size: 3pt;}
+.smtxt {font-size: 7.5pt;}
+
+.popup {position:absolute; width:200; visibility:hidden; left: 0px; top: 0px; z-index: 5}
+.popupbig {position:absolute; width:400; visibility:hidden; left: 0px; top: 0px; z-index: 5}
+
+
+A {font-family : Verdana,Arial; font-size : 8pt; text-decoration:none;}
+A:link {color: #FFA534;}
+A:visited {color: #FFA534;}
+A:active {color: #FFFFFF;}
+A:hover {color: #FFFFFF;}
+A.reduced {font-size : 7pt;}
+A.small {font-family: Verdana; font-weight: bold; font-size : 6pt;}
+A.small:link {color: #000000;}
+A.small:visited {color: #000000;}
+A.small:active {color: #000000;}
+A.small:hover {color: #555555;}
+A.txt:link {color: #FFFFFF;}
+A.txt:visited {color: #FFFFFF;}
+A.txt:active {color: #FFFFFF;}
+A.txt:hover {color: #AAAAAA;}
+A.tablink:link {color: #804000;}
+A.tablink:visited {color: #804000;}
+A.tablink:active {color: #000000;}
+A.tablink:hover {color: #000000;}
+A.tablink7 {font-size : 7pt;}
+A.tablink7:link {color: #804000;}
+A.tablink7:visited {color: #804000;}
+A.tablink7:active {color: #000000;}
+A.tablink7:hover {color: #000000;}
+A.fnotread {text-decoration:none;}
+A.fnotread:link {color: #FFA534;}
+A.fnotread:visited {color: #BBBBBB;}
+A.fnotread:active {color: #FFFFFF;}
+A.fnotread:hover {color: #FFFFFF;}
+A.fread {text-decoration:none;}
+A.fread:link {color: #BBBBBB;}
+A.fread:visited {color: #BBBBBB;}
+A.fread:active {color: #FFFFFF;}
+A.fread:hover {color: #FFFFFF;}
+
+/* Pour BDNet */
+A.bdtitre {font-family: Verdana; font-weight: bold; font-size : 6pt;}
+A.bdtitre:link {color: #000000;}
+A.bdtitre:visited {color: #000000;}
+A.bdtitre:active {color: #000000;}
+A.bdtitre:hover {color: #555555;}
+
+
+INPUT.s180 {width: 180px; color: #000000;}
+INPUT.s200 {width: 200px; color: #000000;}
+INPUT.s300 {width: 300px; color: #000000;}
+.ojform {font-family : Verdana,Arial; font-size : 8pt; color: #000000; background-color: rgb(255,190,49);}
+.ojfakeform {font-family : Verdana,Arial; font-size : 8pt; color: #BBBBBB; background-color: rgb(76,74,71);}
+
+TD {font-family: Verdana,Arial; color: #BBBBBB; font-size: 8pt;}
+
+BODY {scrollbar-face-color: #ffa534; scrollbar-highlight-color: #ffd756; scrollbar-shadow-color: #ff8312; scrollbar-3dlight-color: #000000; scrollbar-arrow-color: #ffffff; scrollbar-track-color: #6e6c69; scrollbar-darkshadow-color: #000000}

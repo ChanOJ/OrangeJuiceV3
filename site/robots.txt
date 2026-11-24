@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://orangejuicev3.sauthier.family/sitemap.xml
