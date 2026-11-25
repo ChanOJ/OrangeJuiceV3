@@ -68,7 +68,9 @@ def write_sitemaps(site, host):
         rel = p.relative_to(site).as_posix()
         if rel.lower() in NOT_FOUND_NAMES or rel.startswith(SKIP_PREFIXES) or not indexable(p):
             continue
-        urls.append("/" if rel.lower() in ("index.html", "index.htm") else "/" + quote(rel))
+        u = "/" if rel.lower() in ("index.html", "index.htm") else "/" + quote(rel)
+        if u not in urls:      # index.htm and index.html are the same page
+            urls.append(u)
     for old in site.glob("sitemap*.xml"):
         old.unlink()
     head = '<?xml version="1.0" encoding="UTF-8"?>\n'
