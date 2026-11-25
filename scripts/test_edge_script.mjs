@@ -66,6 +66,11 @@ const cases = [
   ["/news/golink.htm?id=1&url=%2f1234%2farticle.htm", "/1234/article.htm"],
   ["/news/golink.htm?id=1&url=http%3a%2f%2fwww.ojuice.net%2f_A%2fnicklist.htm", "/_a/nicklist.htm"],
   ["/news/golink.htm?id=1&url=http%3a%2f%2fevil.example%2f", 404], ["/news/golink.htm?id=1", 404],
+  // open redirect: a target path starting with // or /\ must not become a protocol-relative Location
+  ["/golink.htm?url=http://www.ojuice.net//example.org/x", 404], ["/golink.htm?url=http://www.ojuice.net/\\example.org/x", 404],
+  ["/golink.htm?url=http://www.ojuice.net/%5Cexample.org/x", 404], ["/golink.htm?url=http://www.ojuice.net///x", 404],
+  ["/golink.htm?url=http://www.ojuice.net%2F%2Fexample.org/x", 404],
+  ["/golink.htm?url=http://www.ojuice.net/ok.htm", "/ok.htm"],
   ["/skin/light/login.htm?f=1", "/skin/light/archived.htm"],
 ];
 for (const [old, want] of cases) expect(old, want);
