@@ -91,12 +91,16 @@ def is_people_page(path):
 # part is in clear (`local@????`); never on pages with nicks only or starred addresses.
 TRUNCATED_EMAIL = re.compile(r"(?<![A-Za-z0-9._+*-])[A-Za-z0-9._+-]+@\?\?\?\?")
 SHEET_NAME = re.compile(r"(?is)\bName\s*:\s*(?:<FONT[^>]*>)?([^<]*)<")
+ROLE_LOCALS = {"info", "infos", "contact", "tech", "webmaster", "entries", "admin", "mail", "office", "press",
+               "support", "party", "organizers", "organisers", "compo", "competitions", "registration", "postmaster"}
 FAMILY_NAME_PAGES = re.compile(r"(?:^|/)(?:interviews(?:-p\d+)?|wallpapers)\.htm$")
 
 
 def needs_removal_note(path, text):
     if TRUNCATED_EMAIL.search(text):
         return True
+    if path.endswith("/party_infofile.htm"):      # raw organisers' text: the footer covers the addresses left in it
+        return any(m.group(1).lower() not in ROLE_LOCALS for m in EMAIL_RE.finditer(text))
     if path.endswith("/nick.htm"):
         m = SHEET_NAME.search(text)
         return bool(m and len(html.unescape(m.group(1)).split()) >= 2)
@@ -424,10 +428,13 @@ class Site:
         if base.endswith("/viewpic.htm"):
             text = self.fix_goback(text, base)
         stars = is_people_page(base)
-        text = redact_emails(text, stars)
+        raw = base.endswith("/party_infofile.htm")      # the party info files are the organisers' raw text
+        if not raw:
+            text = redact_emails(text, stars)
         text = self.rewrite_links(text, base, out)
         text = self.sweep_own_host(text, base)
-        text = redact_emails(text, stars)
+        if not raw:
+            text = redact_emails(text, stars)
         text = re.sub(r"/\*setTimeout\(.*?\*/", "", text)     # the disabled auto-refresh of every page
         text = mask_ips(text)
         text = re.sub(r"(?i)(charset\s*=\s*)(?:windows-1252|cp1252|us-ascii|(?=[\"'>\s]))", r"\1iso-8859-1", text)
@@ -564,8 +571,11 @@ def neutralize_forms(text, site, out):
         if re.search(r"(?is)<select\b[^>]*name\s*=\s*[\"']?cat\b", inner) and "kw" in names:
             # the "search in" box of every page: a type list and a keyword field
             opts = "".join(f'<OPTION value="{v}">- {t}' for v, t in SEARCH_TYPES)
-            inner = re.sub(r"(?is)<select\b([^>]*)>.*?</select\s*>",
-                           lambda sm: f'<SELECT class="oj-type"{re.sub(r"(?i)name=[^ >]+", "", sm.group(1))}>{opts}</SELECT>', inner, count=1)
+            def select(sm):     # the original `class=ojform` and `size=8` (one line per option) are kept
+                attrs = re.sub(r"(?i)\b(?:name|size)=[^ >]+", "", sm.group(1))
+                attrs = re.sub(r"(?i)\bclass=ojform\b", "", attrs)
+                return f'<SELECT class="oj-type ojform" size={len(SEARCH_TYPES)}{attrs}>{opts}</SELECT>'
+            inner = re.sub(r"(?is)<select\b([^>]*)>.*?</select\s*>", select, inner, count=1)
             inner = re.sub(r"(?is)<input\b([^>]*name\s*=\s*[\"']?kw\b[^>]*)>",
                            lambda im: '<INPUT type="TEXT"' + re.sub(r"(?i)\b(type|name|value|onfocus)\s*=\s*(\"[^\"]*\"|'[^']*'|[^\s>]+)", "", im.group(1)) + ">", inner)
             inner = re.sub(r"(?is)<input\b[^>]*type\s*=\s*[\"']?(?:hidden|submit|image)[^>]*>", "", inner)
@@ -598,17 +608,44 @@ def search_widget(kind, size=18):
 
 MAILTO_A_RE = re.compile(r"<a\b[^>]*href\s*=\s*[\"']?\s*mailto:[^>]*>(.*?)</a\s*>", re.I | re.S)
 EMAIL_RE = re.compile(r"(?<![*\w.+-])([A-Za-z0-9._+-]+)@([A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+)")
+FAMILY_NAMES = ()      # normalised family names (people table), set by build_skin
+
+
+def norm_name(v):
+    return re.sub(r"[^a-z]", "", (v or "").lower())
+
+
+_family_memo = {}
+
+
+def holds_family_name(local):
+    """Owner rule: the domain is truncated (`local@????`) only when the local part holds a family name; a
+    first name, a nick or a role address (`webmaster@`) keeps the full address."""
+    r = _family_memo.get(local)
+    if r is None:
+        n = norm_name(local)
+        r = _family_memo[local] = any(f in n for f in FAMILY_NAMES)
+    return r
 
 
 def redact_emails(text, stars=False):
-    """No mailto link survives. People pages (`stars`, owner decision 2026-11-24): every address keeps its
-    domain and shows the first and last letter of its local part (`l*****t@domain.com`). Other pages:
-    `local@????` (an address already starred is left alone)."""
-    text = MAILTO_A_RE.sub(lambda m: m.group(1), text)
+    """People pages (`stars`, owner decision 2026-11-24, too many addresses to sort by hand): every address
+    keeps its domain and shows the first and last letter of its local part (`l*****t@domain.com`), no
+    `mailto:` link. Other pages: `local@????` when the local part holds a family name, else the complete
+    address (a `mailto:` link keeps its address, never a pre-filled subject)."""
+    def anchor(m):
+        a = re.search(r"(?i)mailto:\s*([^\"'>\s?]+)", m.group(0))
+        e = EMAIL_RE.fullmatch(html.unescape(a.group(1))) if a and not stars else None
+        if e and not holds_family_name(e.group(1)):
+            kept = re.sub(r"(?i)(mailto:\s*[^\"'?>\s]+)\?[^\"'>]*", r"\1", m.group(0))
+            return re.sub(r"(?i)mailto:", "\x00MT\x00", kept)
+        return m.group(1)
+    text = MAILTO_A_RE.sub(anchor, text)
     text = re.sub(r"(?i)mailto:", "", text)
+    text = text.replace("\x00MT\x00", "mailto:")
     if stars:
         return EMAIL_RE.sub(lambda m: oj.star_local(m.group(1)) + "@" + m.group(2), text)
-    return EMAIL_RE.sub(lambda m: m.group(1) + "@" + MASK, text)
+    return EMAIL_RE.sub(lambda m: m.group(1) + "@" + MASK if holds_family_name(m.group(1)) else m.group(0), text)
 
 
 IPV4 = re.compile(r"(?<![\d.])(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)(?![\d.])")
@@ -704,6 +741,9 @@ def build_skin(skin, skins, out, raw, jsv):
     db = oj.DB(RAW / "db" / "OJUICE.sqlite", NOW)
     photos = sorted(p.name.lower() for p in (RAW / "id3" / "zi" / "nicks").iterdir() if p.is_file())
     macros = oj.OJMacros(db, photos)
+    global FAMILY_NAMES
+    FAMILY_NAMES = tuple(sorted({norm_name(r[0]) for r in db.con.execute("SELECT lastname FROM people WHERE lastname IS NOT NULL")
+                                 if len(norm_name(r[0])) >= 4}))
     prefix = "" if skin == DEFAULT_SKIN else f"/skin/{skin}"
     site = Site(None, skin, prefix, macros, skins)
     site.crawl(["/index.htm", "/archived.htm", "/skins.htm", "/oj-search.htm", "/404.htm"])

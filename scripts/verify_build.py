@@ -10,7 +10,7 @@ Hard checks (exit 1 on failure):
   * every html page declares iso-8859-1 and decodes as such
   * every internal link (href/src/background) resolves to a file of the build, keeps no query
     string except the archive's own search page, and stays within its skin prefix
-  * no link to http(s)://(www.)ojuice.net, no `mailto:`, no e-mail address (`local@????` and `f*****l@domain` pass)
+  * no link to http(s)://(www.)ojuice.net, no e-mail address with a family name in its local part (`local@????` and `f*****l@domain` pass)
   * people: no published birth year next to a day/month, no e-mail domain, no department, no
     password; ID photos (/zi/nicks/) only for ids that have a people sheet in the build
     (private values are read at run time from the SQLite database, never stored)
@@ -41,7 +41,6 @@ LEFTOVERS = [
     ("ssi include", re.compile(r"(?i)<!--\s*#(?:include|exec|echo|config)")),
     ("$$ macro", re.compile(r"\$\$(?:[A-Z0-9]+:[A-Z]|-\$\$|_\$\$|[A-Z]+\$\$)")),
     ("form tag", re.compile(r"(?i)<form\b")),
-    ("mailto:", re.compile(r"(?i)mailto:")),
 ]
 # The removal-request footer (statify.py) carries the only mailto: of the site: leave it out of the scans.
 REMOVAL_NOTE_RE = re.compile(r'(?s)<div id="removal-note".*?</div>')
@@ -127,8 +126,13 @@ def main(argv=None):
     # private values, read at run time only
     db = raw / "db" / "OJUICE.sqlite"
     years, emails, deps, photos = {}, {}, {}, {}
+    lastnames = set()
     if db.is_file():
         con = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+        for (ln,) in con.execute("SELECT lastname FROM people WHERE lastname IS NOT NULL"):
+            ln = re.sub(r"[^a-z]", "", ln.lower())
+            if len(ln) >= 4:
+                lastnames.add(ln)
         for pid, by, md, em, dep, ext in con.execute(
                 "SELECT id, birthyear, birthmd, email, department, pic_ext FROM people"):
             if by and md and len(md) == 4:
@@ -175,8 +179,13 @@ def main(argv=None):
             if OWN_HOST_RE.search(tm.group(0)):
                 err("own host link", f"{f}: {tm.group(0)[:100]}")
                 break
-        for m in EMAIL_RE.finditer(text):
-            err("e-mail", f"{f}: {m.group(0)}")
+        # owner rules: people pages show starred addresses, other pages `local@????` when the local part holds a
+        # family name and the complete address otherwise; party info files are the organisers' raw text
+        if not f.endswith("party_infofile.htm"):
+            for m in EMAIL_RE.finditer(text):
+                local = re.sub(r"[^a-z]", "", m.group(0).split("@")[0].lower())
+                if any(ln in local for ln in lastnames):
+                    err("e-mail", f"{f}: {m.group(0)}")
         for m in IPV4.finditer(text):
             before = text[max(0, m.start() - 12):m.start()].lower()
             if not before.endswith(("://", "@")):
