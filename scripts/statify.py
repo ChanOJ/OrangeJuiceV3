@@ -55,7 +55,7 @@ SKINS = ["o", "light"]      # rendered skins (o at the root); see docs/plan.md f
 FALLBACK = {"ob": "o"}
 MASK = "????"
 ARCHIVED = "/archived.htm"
-SEARCH_PAGE = "/oj-search.htm"     # client-side search results (z/o/search.htm is the FTP search page)
+SEARCH_PAGE = "/oj-search.htm"     # client-side search results (z/o/search.htm, the FTP / pictures / photos forms, is replaced by the same page)
 META_CHARSET = '<META http-equiv="Content-Type" content="text/html; charset=iso-8859-1">'
 
 # ---- removal-request footer: added to every page that lists or describes people
@@ -182,6 +182,7 @@ def virtual_pages(skins):
                     "This page is not in the archive.<BR><BR>"
                     f'{ARCHIVE_NOTE}<BR><BR><A href="/index.htm">Back to the news</A>'),
     }
+    pages["search.htm"] = pages["oj-search.htm"]    # the main menu's "download" icon: the old FTP, pictures and photos forms are gone
     return {k: FRAME % {"title": t, "gif": g, "body": b} for k, (t, g, b) in pages.items()}
 
 
