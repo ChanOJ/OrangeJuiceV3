@@ -71,6 +71,11 @@ const DATA = {blob};
 const REMOVED = new Set(DATA.removed);
 const HOSTS = new Set(DATA.hosts);
 const NOT_FOUND = {{ status: 404 }};
+function foreign(pathname) {{
+  let d;
+  try {{ d = decodeURIComponent(pathname); }} catch (e) {{ d = pathname; }}
+  return /^[\\/\\\\]{{2}}/.test(d);   // "//host" or "/\\host": a protocol-relative URL once in Location
+}}
 const moved = (location) => ({{ status: 301, location }});
 
 // -> null (serve the request as is), {{status: 301, location}} or {{status: 404}}.
@@ -98,6 +103,7 @@ function resolve(pathname, search, depth = 0) {{
     let t;
     try {{ t = new URL(u, "http://www.ojuice.net/"); }} catch (e) {{ return NOT_FOUND; }}
     if (!HOSTS.has(t.hostname.toLowerCase())) return NOT_FOUND;
+    if (foreign(t.pathname)) return NOT_FOUND;
     return resolve(t.pathname, t.search, depth + 1) || moved(prefix + t.pathname);
   }}
   if (REMOVED.has(name)) return moved(prefix + DATA.archived);
@@ -130,7 +136,7 @@ BunnySDK.net.http.servePullZone().onOriginRequest((ctx) => {{
   if (r.status === 301) {{
     return Promise.resolve(new Response(null, {{
       status: 301,
-      headers: {{ Location: r.location, "Cache-Control": "public, max-age=86400" }},
+      headers: {{ Location: url.origin + r.location, "Cache-Control": "public, max-age=86400" }},
     }}));
   }}
   // A path that never exists in the storage zone: the origin answers with its custom 404 page.
