@@ -609,6 +609,7 @@ def search_widget(kind, size=18):
 MAILTO_A_RE = re.compile(r"<a\b[^>]*href\s*=\s*[\"']?\s*mailto:[^>]*>(.*?)</a\s*>", re.I | re.S)
 EMAIL_RE = re.compile(r"(?<![*\w.+-])([A-Za-z0-9._+-]+)@([A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+)")
 FAMILY_NAMES = ()      # normalised family names (people table), set by build_skin
+FAMILY_LOCALS = frozenset()      # local parts reviewed by the owner (private/email-family.txt, git-ignored)
 
 
 def norm_name(v):
@@ -624,7 +625,7 @@ def holds_family_name(local):
     r = _family_memo.get(local)
     if r is None:
         n = norm_name(local)
-        r = _family_memo[local] = any(f in n for f in FAMILY_NAMES)
+        r = _family_memo[local] = local.lower() in FAMILY_LOCALS or any(f in n for f in FAMILY_NAMES)
     return r
 
 
@@ -741,7 +742,9 @@ def build_skin(skin, skins, out, raw, jsv):
     db = oj.DB(RAW / "db" / "OJUICE.sqlite", NOW)
     photos = sorted(p.name.lower() for p in (RAW / "id3" / "zi" / "nicks").iterdir() if p.is_file())
     macros = oj.OJMacros(db, photos)
-    global FAMILY_NAMES
+    global FAMILY_NAMES, FAMILY_LOCALS
+    fam = REPO / "private" / "email-family.txt"
+    FAMILY_LOCALS = frozenset(l.strip().lower() for l in fam.read_text().splitlines() if l.strip()) if fam.is_file() else frozenset()
     FAMILY_NAMES = tuple(sorted({norm_name(r[0]) for r in db.con.execute("SELECT lastname FROM people WHERE lastname IS NOT NULL")
                                  if len(norm_name(r[0])) >= 4}))
     prefix = "" if skin == DEFAULT_SKIN else f"/skin/{skin}"
